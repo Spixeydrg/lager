@@ -1,32 +1,26 @@
-// Konfiguration & "Datenbank"
-const APP_CONFIG = {
-    user: "manager", // Ändere hier deinen Benutzernamen
-    pass: "lager2024" // Ändere hier dein Passwort
-};
+// Konfiguration
+const CONFIG = { user: "admin", pass: "admin123" };
 
 const db = {
-    get: (key) => JSON.parse(localStorage.getItem(`stockapp_${key}`)) || [],
-    save: (key, data) => localStorage.setItem(`stockapp_${key}`, JSON.stringify(data))
+    get: (k) => JSON.parse(localStorage.getItem(`sm_${k}`)) || [],
+    save: (k, d) => localStorage.setItem(`sm_${k}`, JSON.stringify(d))
 };
 
-// --- LOGIN SYSTEM ---
+// Initial-Daten (falls leer)
+if(db.get('categories').length === 0) db.save('categories', ['Elektronik', 'Werkzeug', 'Büro']);
+if(db.get('locations').length === 0) db.save('locations', ['Hauptlager', 'Regal A1', 'Versandbox']);
+
 const auth = {
     login: () => {
-        const u = document.getElementById('login-user').value;
-        const p = document.getElementById('login-pass').value;
-        if(u === APP_CONFIG.user && p === APP_CONFIG.pass) {
-            localStorage.setItem('stockapp_session', 'active');
+        if(document.getElementById('login-user').value === CONFIG.user && 
+           document.getElementById('login-pass').value === CONFIG.pass) {
+            localStorage.setItem('sm_auth', 'true');
             location.reload();
-        } else {
-            alert("Zugriff verweigert!");
-        }
+        } else { alert("Falsche Daten!"); }
     },
-    logout: () => {
-        localStorage.removeItem('stockapp_session');
-        location.reload();
-    },
-    init: () => {
-        if(localStorage.getItem('stockapp_session')) {
+    logout: () => { localStorage.removeItem('sm_auth'); location.reload(); },
+    check: () => {
+        if(localStorage.getItem('sm_auth')) {
             document.getElementById('login-overlay').style.display = 'none';
             document.getElementById('main-app').style.display = 'flex';
             ui.showSection('dashboard');
@@ -34,180 +28,140 @@ const auth = {
     }
 };
 
-// --- UI ENGINE ---
 const ui = {
     showSection: (id) => {
         document.querySelectorAll('.page-section').forEach(s => s.style.display = 'none');
         document.querySelectorAll('.nav-links li').forEach(l => l.classList.remove('active'));
-        
         document.getElementById(id).style.display = 'block';
-        event?.currentTarget?.classList.add('active'); // Markiert aktiven Menüpunkt
-
+        document.getElementById(`nav-${id}`).classList.add('active');
+        
         if(id === 'inventory') inventory.render();
+        if(id === 'settings') settings.render();
         if(id === 'customers') customers.render();
         if(id === 'orders') orders.render();
         ui.updateStats();
     },
     updateStats: () => {
         const items = db.get('items');
-        const low = items.filter(i => Number(i.stock) <= Number(i.minStock)).length;
         document.getElementById('stat-items').innerText = items.length;
-        document.getElementById('stat-low-stock').innerText = low;
+        document.getElementById('stat-low-stock').innerText = items.filter(i => Number(i.stock) <= Number(i.min)).length;
         document.getElementById('stat-customers').innerText = db.get('customers').length;
         document.getElementById('stat-orders').innerText = db.get('orders').length;
     }
 };
 
-// --- INVENTAR ---
+const settings = {
+    render: () => {
+        ['categories', 'locations'].forEach(key => {
+            const list = document.getElementById(`list-${key}`);
+            list.innerHTML = db.get(key).map((item, i) => `
+                <li>${item} <i class="fas fa-trash text-danger" style="cursor:pointer" onclick="settings.remove('${key}', ${i})"></i></li>
+            `).join('');
+        });
+    },
+    add: (key, inputId) => {
+        const val = document.getElementById(inputId).value.trim();
+        if(!val) return;
+        const data = db.get(key);
+        data.push(val);
+        db.save(key, data);
+        document.getElementById(inputId).value = '';
+        settings.render();
+    },
+    remove: (key, i) => {
+        const data = db.get(key);
+        data.splice(i, 1);
+        db.save(key, data);
+        settings.render();
+    }
+};
+
 const inventory = {
     render: () => {
         const items = db.get('items');
-        const html = items.map((item, i) => {
-            const isLow = Number(item.stock) <= Number(item.minStock);
-            return `
+        document.getElementById('inventory-body').innerHTML = items.map((item, i) => `
             <tr>
                 <td><strong>${item.sku}</strong></td>
                 <td>${item.name}</td>
-                <td><span class="badge" style="background:#e2e8f0">${item.category}</span></td>
-                <td><span class="badge ${isLow ? 'badge-low' : 'badge-ok'}">${item.stock} / ${item.minStock}</span></td>
+                <td><span class="badge">${item.category}</span></td>
                 <td>${item.location}</td>
-                <td><button class="btn-danger" onclick="inventory.delete(${i})"><i class="fas fa-trash"></i></button></td>
-            </tr>`;
-        }).join('');
-        document.getElementById('inventory-body').innerHTML = html || '<tr><td colspan="6" style="text-align:center">Keine Artikel im Lager</td></tr>';
+                <td class="${Number(item.stock) <= Number(item.min) ? 'text-danger' : ''}">${item.stock} / ${item.min}</td>
+                <td><button onclick="inventory.delete(${i})" class="btn-danger">Löschen</button></td>
+            </tr>
+        `).join('');
     },
     showModal: () => {
+        const cats = db.get('categories');
+        const locs = db.get('locations');
         document.getElementById('modal-form-content').innerHTML = `
-            <h2 style="margin-bottom:1rem">Neuer Artikel</h2>
-            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px">
-                <input id="inv-name" placeholder="Artikelname">
-                <input id="inv-sku" placeholder="SKU / Barcode">
-                <input id="inv-cat" placeholder="Kategorie">
-                <input id="inv-loc" placeholder="Lagerort (Regal A1)">
-                <input type="number" id="inv-stock" placeholder="Aktueller Bestand">
-                <input type="number" id="inv-min" placeholder="Mindestbestand">
-            </div>
-            <div style="margin-top:1.5rem; display:flex; gap:10px">
-                <button class="btn-primary" onclick="inventory.add()">Hinzufügen</button>
+            <h2>Artikel hinzufügen</h2>
+            <input id="in-sku" placeholder="SKU">
+            <input id="in-name" placeholder="Artikelname">
+            <label>Kategorie</label>
+            <select id="in-cat">${cats.map(c => `<option>${c}</option>`).join('')}</select>
+            <label>Lagerort</label>
+            <select id="in-loc">${locs.map(l => `<option>${l}</option>`).join('')}</select>
+            <input type="number" id="in-stock" placeholder="Bestand">
+            <input type="number" id="in-min" placeholder="Mindestbestand">
+            <div style="margin-top:20px">
+                <button class="btn-primary" onclick="inventory.save()">Speichern</button>
                 <button onclick="document.getElementById('modal-container').style.display='none'">Abbrechen</button>
             </div>
         `;
         document.getElementById('modal-container').style.display = 'block';
     },
-    add: () => {
+    save: () => {
         const items = db.get('items');
-        const newItem = {
-            name: document.getElementById('inv-name').value,
-            sku: document.getElementById('inv-sku').value,
-            category: document.getElementById('inv-cat').value,
-            location: document.getElementById('inv-loc').value,
-            stock: document.getElementById('inv-stock').value,
-            minStock: document.getElementById('inv-min').value
-        };
-        if(!newItem.name || !newItem.sku) return alert("Name und SKU sind Pflicht!");
-        items.push(newItem);
+        items.push({
+            sku: document.getElementById('in-sku').value,
+            name: document.getElementById('in-name').value,
+            category: document.getElementById('in-cat').value,
+            location: document.getElementById('in-loc').value,
+            stock: document.getElementById('in-stock').value,
+            min: document.getElementById('in-min').value
+        });
         db.save('items', items);
         document.getElementById('modal-container').style.display = 'none';
         inventory.render();
-        ui.updateStats();
     },
-    delete: (i) => {
-        if(confirm("Artikel wirklich löschen?")) {
-            const items = db.get('items');
-            items.splice(i, 1);
-            db.save('items', items);
-            inventory.render();
-            ui.updateStats();
-        }
-    }
+    delete: (i) => { if(confirm("Löschen?")) { const d = db.get('items'); d.splice(i,1); db.save('items', d); inventory.render(); } }
 };
 
-// --- KUNDEN & BESTELLUNGEN (Kurzform für Übersicht) ---
+// Dummy-Funktionen für Kunden/Bestellungen (ähnliches Schema wie oben)
 const customers = {
     render: () => {
-        const data = db.get('customers');
-        document.getElementById('customers-body').innerHTML = data.map((c, i) => `
-            <tr>
-                <td>${c.name}</td>
-                <td>${c.email}</td>
-                <td>${c.phone}</td>
-                <td>${c.address}</td>
-                <td><button class="btn-danger" onclick="customers.delete(${i})">X</button></td>
-            </tr>`).join('');
+        const d = db.get('customers');
+        document.getElementById('customers-body').innerHTML = d.map((c, i) => `<tr><td>${c.name}</td><td>${c.email}</td><td>${c.phone}</td><td><button onclick="customers.delete(${i})">X</button></td></tr>`).join('');
     },
     showModal: () => {
-        document.getElementById('modal-form-content').innerHTML = `
-            <h2>Kunde hinzufügen</h2>
-            <input id="c-n" placeholder="Vollständiger Name">
-            <input id="c-e" placeholder="Email">
-            <input id="c-p" placeholder="Telefon">
-            <input id="c-a" placeholder="Anschrift">
-            <button class="btn-primary" onclick="customers.save()">Speichern</button>
-        `;
+        document.getElementById('modal-form-content').innerHTML = `<h2>Neuer Kunde</h2><input id="c-n" placeholder="Name"><input id="c-e" placeholder="Email"><input id="c-p" placeholder="Tel"><button class="btn-primary" onclick="customers.save()">Speichern</button>`;
         document.getElementById('modal-container').style.display = 'block';
     },
     save: () => {
         const d = db.get('customers');
-        d.push({name:document.getElementById('c-n').value, email:document.getElementById('c-e').value, phone:document.getElementById('c-p').value, address:document.getElementById('c-a').value});
-        db.save('customers', d);
-        document.getElementById('modal-container').style.display='none';
-        customers.render();
+        d.push({name:document.getElementById('c-n').value, email:document.getElementById('c-e').value, phone:document.getElementById('c-p').value});
+        db.save('customers', d); document.getElementById('modal-container').style.display = 'none'; customers.render();
     },
-    delete: (i) => {
-        const d = db.get('customers'); d.splice(i,1); db.save('customers', d); customers.render();
-    }
+    delete: (i) => { const d = db.get('customers'); d.splice(i,1); db.save('customers', d); customers.render(); }
 };
 
 const orders = {
     render: () => {
-        const data = db.get('orders');
-        document.getElementById('orders-list').innerHTML = data.map(o => `
-            <div class="stat-card">
-                <div style="display:flex; justify-content:space-between">
-                    <strong>${o.customer}</strong>
-                    <span class="text-muted">${o.date}</span>
-                </div>
-                <p style="font-size:1rem; margin-top:10px">Artikel: ${o.items.join(', ')}</p>
-            </div>
-        `).join('');
+        const d = db.get('orders');
+        document.getElementById('orders-list').innerHTML = d.map(o => `<div class="stat-card"><strong>${o.cust}</strong><p>${o.items.length} Artikel</p><small>${o.date}</small></div>`).join('');
     },
     showModal: () => {
-        const items = db.get('items');
-        const custs = db.get('customers');
-        if(custs.length === 0) return alert("Bitte erstelle zuerst einen Kunden!");
-        document.getElementById('modal-form-content').innerHTML = `
-            <h2>Neue Bestellung aufgeben</h2>
-            <label>Kunde auswählen:</label>
-            <select id="o-c">${custs.map(c => `<option>${c.name}</option>`)}</select>
-            <label style="margin-top:10px; display:block">Artikel wählen (STRG für Mehrfachwahl):</label>
-            <select id="o-i" multiple style="height:120px">
-                ${items.map(i => `<option value="${i.sku}">${i.name} (Lager: ${i.stock})</option>`)}
-            </select>
-            <button class="btn-primary" style="margin-top:1rem" onclick="orders.process()">Bestellung abschließen</button>
-        `;
+        const c = db.get('customers');
+        const i = db.get('items');
+        document.getElementById('modal-form-content').innerHTML = `<h2>Neue Bestellung</h2><select id="o-c">${c.map(x => `<option>${x.name}</option>`)}</select><select id="o-i" multiple>${i.map(x => `<option value="${x.sku}">${x.name}</option>`)}</select><button class="btn-primary" onclick="orders.save()">Abschluss</button>`;
         document.getElementById('modal-container').style.display = 'block';
     },
-    process: () => {
-        const selected = Array.from(document.getElementById('o-i').selectedOptions).map(o => o.value);
-        if(selected.length === 0) return alert("Keine Artikel gewählt!");
-        
-        // Lager abziehen
-        let inv = db.get('items');
-        selected.forEach(sku => {
-            let item = inv.find(x => x.sku === sku);
-            if(item && item.stock > 0) item.stock--;
-        });
-        db.save('items', inv);
-
-        const ord = db.get('orders');
-        ord.unshift({ customer: document.getElementById('o-c').value, items: selected, date: new Date().toLocaleString() });
-        db.save('orders', ord);
-
-        document.getElementById('modal-container').style.display = 'none';
-        orders.render();
-        ui.updateStats();
+    save: () => {
+        const d = db.get('orders');
+        d.push({cust: document.getElementById('o-c').value, items: Array.from(document.getElementById('o-i').selectedOptions).map(x => x.value), date: new Date().toLocaleString()});
+        db.save('orders', d); document.getElementById('modal-container').style.display = 'none'; orders.render();
     }
-};
+}
 
 // Start
-auth.init();
+auth.check();
