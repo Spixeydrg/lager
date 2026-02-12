@@ -3,99 +3,99 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gemini Stock Manager</title>
+    <title>StockMaster Enterprise</title>
     <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
 
     <div id="login-overlay" class="overlay">
         <div class="login-card">
-            <h2><i class="fas fa-warehouse"></i> Lager Login</h2>
-            <p>Standard: admin / admin</p>
+            <div class="login-icon"><i class="fas fa-shield-halved"></i></div>
+            <h2>System-Login</h2>
             <input type="text" id="login-user" placeholder="Benutzername">
             <input type="password" id="login-pass" placeholder="Passwort">
-            <button onclick="auth.login()">Anmelden</button>
+            <button class="btn-primary" onclick="auth.login()">Anmelden</button>
         </div>
     </div>
 
     <div class="container" id="main-app" style="display: none;">
         <nav class="sidebar">
             <div class="sidebar-header">
-                <h3>StockMaster Pro</h3>
+                <i class="fas fa-warehouse"></i> <span>StockMaster</span>
             </div>
             <ul class="nav-links">
-                <li onclick="ui.showSection('dashboard')"><i class="fas fa-chart-line"></i> Dashboard</li>
-                <li onclick="ui.showSection('inventory')"><i class="fas fa-boxes"></i> Lagerbestand</li>
-                <li onclick="ui.showSection('customers')"><i class="fas fa-users"></i> Kunden</li>
-                <li onclick="ui.showSection('orders')"><i class="fas fa-shopping-cart"></i> Bestellungen</li>
-                <li onclick="auth.logout()" class="logout"><i class="fas fa-sign-out-alt"></i> Abmelden</li>
+                <li onclick="ui.showSection('dashboard')" id="nav-dashboard"><i class="fas fa-chart-pie"></i> Dashboard</li>
+                <li onclick="ui.showSection('inventory')" id="nav-inventory"><i class="fas fa-box-archive"></i> Lagerbestand</li>
+                <li onclick="ui.showSection('customers')" id="nav-customers"><i class="fas fa-address-book"></i> Kunden</li>
+                <li onclick="ui.showSection('orders')" id="nav-orders"><i class="fas fa-cart-shopping"></i> Bestellungen</li>
+                <li onclick="ui.showSection('settings')" id="nav-settings"><i class="fas fa-gears"></i> Einstellungen</li>
+                <li onclick="auth.logout()" class="logout"><i class="fas fa-right-from-bracket"></i> Abmelden</li>
             </ul>
         </nav>
 
         <main class="content">
             <section id="dashboard" class="page-section">
-                <h1>Dashboard</h1>
+                <div class="section-title">Übersicht</div>
                 <div class="stats-grid">
-                    <div class="stat-card"><h3>Artikel</h3><p id="stat-items">0</p></div>
-                    <div class="stat-card warning"><h3>Niedriger Bestand</h3><p id="stat-low-stock">0</p></div>
-                    <div class="stat-card"><h3>Kunden</h3><p id="stat-customers">0</p></div>
-                    <div class="stat-card"><h3>Bestellungen</h3><p id="stat-orders">0</p></div>
+                    <div class="stat-card"><h3>Gesamtartikel</h3><p id="stat-items">0</p></div>
+                    <div class="stat-card danger"><h3>Kritischer Bestand</h3><p id="stat-low-stock" class="text-danger">0</p></div>
+                    <div class="stat-card"><h3>Kundenstamm</h3><p id="stat-customers">0</p></div>
+                    <div class="stat-card"><h3>Umsatz (Anzahl)</h3><p id="stat-orders">0</p></div>
                 </div>
             </section>
 
             <section id="inventory" class="page-section" style="display:none;">
-                <div class="section-header">
-                    <h1>Lagerverwaltung</h1>
-                    <button class="btn-add" onclick="inventory.showModal()">+ Artikel hinzufügen</button>
+                <div class="header-flex">
+                    <div class="section-title">Lagerverwaltung</div>
+                    <button class="btn-primary" onclick="inventory.showModal()"><i class="fas fa-plus"></i> Artikel</button>
                 </div>
-                <table id="inventory-table">
-                    <thead>
-                        <tr>
-                            <th>SKU</th>
-                            <th>Name</th>
-                            <th>Kategorie</th>
-                            <th>Bestand</th>
-                            <th>Ort</th>
-                            <th>Aktionen</th>
-                        </tr>
-                    </thead>
-                    <tbody id="inventory-body"></tbody>
-                </table>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>SKU</th>
+                                <th>Name</th>
+                                <th>Kategorie</th>
+                                <th>Lagerort</th>
+                                <th>Bestand</th>
+                                <th>Aktionen</th>
+                            </tr>
+                        </thead>
+                        <tbody id="inventory-body"></tbody>
+                    </table>
+                </div>
             </section>
 
-            <section id="customers" class="page-section" style="display:none;">
-                <div class="section-header">
-                    <h1>Kundenverwaltung</h1>
-                    <button class="btn-add" onclick="customers.showModal()">+ Kunde hinzufügen</button>
+            <section id="settings" class="page-section" style="display:none;">
+                <div class="section-title">Stammdaten / Einstellungen</div>
+                <div class="settings-grid">
+                    <div class="card">
+                        <h3><i class="fas fa-tags"></i> Kategorien</h3>
+                        <div class="input-group">
+                            <input type="text" id="new-cat" placeholder="z.B. Elektronik">
+                            <button onclick="settings.add('categories', 'new-cat')">Hinzufügen</button>
+                        </div>
+                        <ul id="list-categories" class="settings-list"></ul>
+                    </div>
+                    <div class="card">
+                        <h3><i class="fas fa-map-location-dot"></i> Lagerorte</h3>
+                        <div class="input-group">
+                            <input type="text" id="new-loc" placeholder="z.B. Regal A-01">
+                            <button onclick="settings.add('locations', 'new-loc')">Hinzufügen</button>
+                        </div>
+                        <ul id="list-locations" class="settings-list"></ul>
+                    </div>
                 </div>
-                <table id="customers-table">
-                    <thead>
-                        <tr>
-                            <th>Name</th>
-                            <th>Email</th>
-                            <th>Telefon</th>
-                            <th>Adresse</th>
-                            <th>Aktionen</th>
-                        </tr>
-                    </thead>
-                    <tbody id="customers-body"></tbody>
-                </table>
             </section>
 
-            <section id="orders" class="page-section" style="display:none;">
-                <div class="section-header">
-                    <h1>Bestellungen</h1>
-                    <button class="btn-add" onclick="orders.showModal()">+ Neue Bestellung</button>
-                </div>
-                <div id="orders-list"></div>
-            </section>
+            <section id="customers" class="page-section" style="display:none;"><div class="section-title">Kundenverwaltung</div><button class="btn-primary" onclick="customers.showModal()">+ Kunde</button><div class="table-container"><table><thead><tr><th>Name</th><th>Email</th><th>Telefon</th><th>Aktionen</th></tr></thead><tbody id="customers-body"></tbody></table></div></section>
+            <section id="orders" class="page-section" style="display:none;"><div class="section-title">Bestell-Historie</div><button class="btn-primary" onclick="orders.showModal()">+ Neue Bestellung</button><div id="orders-list" class="orders-grid"></div></section>
         </main>
     </div>
 
     <div id="modal-container" class="modal">
-        <div class="modal-content" id="modal-form-content">
-            </div>
+        <div class="modal-content" id="modal-form-content"></div>
     </div>
 
     <script src="script.js"></script>
